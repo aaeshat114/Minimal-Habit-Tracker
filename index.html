@@ -61,7 +61,6 @@
             gap: 15px;
         }
 
-        /* FIXED LABELS LOGIC */
         .tracker-wrapper {
             display: flex;
             gap: 15px;
@@ -72,7 +71,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            padding-bottom: 10px; /* Match scrollbar padding */
+            padding-bottom: 10px;
         }
 
         .scroll-viewport {
@@ -118,7 +117,7 @@
             font-weight: bold;
             white-space: nowrap;
             text-align: right;
-            height: 22px; /* Match square height */
+            height: 22px;
             display: flex;
             align-items: center;
             justify-content: flex-end;
@@ -174,7 +173,7 @@
         .manage-row {
             display: flex;
             align-items: center;
-            gap: 4px; /* Space between buttons and the card border */
+            gap: 4px;
             width: 100%;
         }
 
@@ -333,12 +332,10 @@
     modalConfirm.onclick = () => { if (modalAction) modalAction(); modal.style.display = 'none'; modalAction = null; };
     modalCancel.onclick = () => { modal.style.display = 'none'; modalAction = null; };
 
-    // Helper: Convert Date object to YYYY-MM-DD
     function toDateStr(date) {
         return date.toISOString().split('T')[0];
     }
 
-    // Helper: Get array of all date strings in history
     function getAllRecordedDates() {
         const dates = [];
         const all = [...habits, ...archivedHabits, ...archivedHistory];
@@ -356,7 +353,6 @@
         const recorded = getAllRecordedDates();
         const today = toDateStr(new Date());
         if (recorded.length === 0) return today;
-        // The start is the earlier of the first recorded date OR today
         return recorded[0] < today ? recorded[0] : today;
     }
 
@@ -399,7 +395,6 @@
         const startDay = new Date(gridStartStr);
         const todayStr = toDateStr(new Date());
         
-        // Calculate number of columns from grid start to 15 days past today
         const msPerDay = 24 * 60 * 60 * 1000;
         const diffToToday = Math.floor((new Date(todayStr) - startDay) / msPerDay);
         const totalColumns = diffToToday + 16;
@@ -468,20 +463,15 @@
         
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         
-        // Start and end of the currently viewed month for comparison
         const monthStartStr = toDateStr(new Date(year, month, 1));
         const monthEndStr = toDateStr(new Date(year, month, daysInMonth));
 
-        // Filter the list to include:
-        // 1. All active habits
-        // 2. Archived habits ONLY IF they have at least one entry in the current month
         const displayList = [
             ...habits,
             ...archivedHistory.filter(h => {
                 if (!h.isActive) return false;
                 if (!h.history) return false;
-                
-                // Check if any key in the history falls within this month
+                 
                 return Object.keys(h.history).some(dateStr => {
                     return dateStr >= monthStartStr && dateStr <= monthEndStr;
                 });
@@ -601,7 +591,6 @@
         const manageContainer = document.getElementById('manage-habits-container');
         
         if (archivedHabits.length > 0) {
-            // Only show if there is data AND the manage card is NOT collapsed
             container.style.display = manageContainer.classList.contains('collapsed') ? 'none' : 'block';
             
             archivedHabits.forEach((habit, index) => {
@@ -628,7 +617,6 @@
         const manageContainer = document.getElementById('manage-habits-container');
         
         if (archivedHistory.length > 0) {
-            // Only show if there is data AND the manage card is NOT collapsed
             container.style.display = manageContainer.classList.contains('collapsed') ? 'none' : 'block';
             
             archivedHistory.forEach((item, index) => {
@@ -672,11 +660,9 @@
         archivedHabits.push(habit);
         const hIdx = archivedHistory.findIndex(h => h.id === habit.id);
         if (hIdx === -1) { 
-            // Set to true so it shows in the month section immediately
             archivedHistory.push({ ...habit, isActive: true }); 
         } 
         else { 
-            // Set to true so it shows in the month section immediately
             archivedHistory[hIdx].isActive = true; 
         }
         editingIndex = -1; render();
@@ -707,18 +693,14 @@
         const archiveContainer = document.getElementById('archive-container');
         const dataArchiveContainer = document.getElementById('data-archive-container');
         
-        // Toggle the collapsed class for the Manage Habits card
         container.classList.toggle('collapsed');
         
-        // Check if the card is now collapsed
         const isCollapsed = container.classList.contains('collapsed');
         
         if (isCollapsed) {
-            // Hide the other cards when collapsed
             archiveContainer.style.display = 'none';
             dataArchiveContainer.style.display = 'none';
         } else {
-            // Show the other cards when expanded (only if they have content)
             if (archivedHabits.length > 0) archiveContainer.style.display = 'block';
             if (archivedHistory.length > 0) dataArchiveContainer.style.display = 'block';
         }
