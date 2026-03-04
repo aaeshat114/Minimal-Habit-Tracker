@@ -81,6 +81,13 @@
             scroll-behavior: smooth;
         }
 
+        .scroll-viewport::-webkit-scrollbar {
+    display: none;
+        }
+        .scroll-viewport {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+
         .habit-table {
             display: flex;
             flex-direction: column;
