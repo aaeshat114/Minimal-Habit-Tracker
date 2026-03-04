@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#062447">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal Habit Tracker</title>
+    <style>
+        :root {
+            --bg: #062447;
+            --card-bg: #00193E;
+            --empty: #1A2947;
+            --partial: #816965;
+            --done: #FCBB90;
+            --text: #485F7A;
+            --text-h: #455D78;
+            --text-alt: #808C9F;
+            --border: #344B67;
+            --danger: #FF906E;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            background-color: var(--card-bg);
+            padding: 1.2rem;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 450px;
+            margin-bottom: 1.5rem;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.2rem;
+        }
+
+        h2 {
+            font-size: 0.75rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-h)
+            margin: 0;
+            opacity: 0.8;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        /* FIXED LABELS LOGIC */
+        .tracker-wrapper {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+        }
+
+        .fixed-labels {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-bottom: 10px; /* Match scrollbar padding */
+        }
+
+        .scroll-viewport {
+            overflow-x: auto;
+            flex-grow: 1;
+            padding-bottom: 10px;
+            scroll-behavior: smooth;
+        }
+
+        .habit-table {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: max-content;
+        }
+
+        .indicator-row, .grid-row {
+            display: flex;
+            gap: 6px;
+        }
+
+        .triangle-container {
+            width: 22px;
+            display: flex;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .today-tri {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 7px solid var(--partial);
+            visibility: hidden;
+        }
+
+        .today-tri.active { visibility: visible; }
+
+        .habit-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            font-weight: bold;
+            white-space: nowrap;
+            text-align: right;
+            height: 22px; /* Match square height */
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .square {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+            background-color: var(--empty);
+            flex-shrink: 0;
+            transition: transform 0.1s;
+        }
+
+        .square.clickable { cursor: pointer; }
+        .square.clickable:active { transform: scale(0.9); }
+        .square.disabled { cursor: default; opacity: 0.5; }
+
+        .lock-btn { background: none; border: none; cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; opacity: 0.6; transition: opacity 0.2s; }
+        .lock-btn:hover { opacity: 1; }
+        .lock-btn svg { width: 18px; height: 18px; fill: var(--text); }
+        .lock-btn.unlocked svg { fill: var(--done); }
+        .year-label { position: absolute; top: 1.2rem; right: 1.2rem; font-size: 0.7rem; font-weight: bold; opacity: 0.6; }
+        .nav-tri { width: 0; height: 0; cursor: pointer; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+        .nav-left { border-right: 8px solid var(--partial); }
+        .nav-right { border-left: 8px solid var(--partial); }
+        .month-section { display: flex; flex-direction: column; gap: 15px; }
+        .month-habit-group { display: flex; flex-direction: column; gap: 5px; }
+        .month-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+        .mini-square { width: 12px; height: 12px; border-radius: 2px; background-color: var(--empty); flex-shrink: 0; }
+        [data-status="1"] { background-color: var(--partial); }
+        [data-status="2"] { background-color: var(--done); }
+        .manage-list { display: flex; flex-direction: column; gap: 10px; margin-top: 1.2rem; margin-bottom: 1.5rem; }
+        .manage-item { display: flex; justify-content: space-between; align-items: center; background: var(--card-bg); border: solid 1px; border-color: var(--border); padding: 8px 12px; border-radius: 8px; font-size: 0.8rem; }
+        .manage-actions { display: flex; gap: 8px; }
+        .btn-small { background: transparent; border: 1px solid var(--border); color: var(--text); padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; cursor: pointer; text-transform: uppercase; }
+        .btn-danger { border-color: var(--danger); color: var(--danger); }
+        .controls { display: flex; gap: 8px; }
+        input { background: var(--card-bg); border: solid 1px; border-color: var(--border); padding: 10px; color: var(--text-alt); border-radius: 8px; outline: none; flex-grow: 1; font-size: 0.9rem; }
+        .btn-main { background: var(--card-bg); color: var(--partial); border: solid 1px; border-color: var(--border); padding: 10px 18px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+                        .btn-reorder {
+            background: transparent;
+            border: none;
+            padding: 4px;
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .manage-row {
+            display: flex;
+            align-items: center;
+            gap: 4px; /* Space between buttons and the card border */
+            width: 100%;
+        }
+
+        .reorder-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding: 4px;
+            flex-shrink: 0;
+            width: 24px;
+            align-items: center;
+        }
+
+        .btn-reorder {
+            background: transparent;
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .btn-reorder:disabled { cursor: default; }
+
+        .reorder-up {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-bottom: 7px solid var(--text);
+        }
+
+        .reorder-down {
+            width: 0;
+            height: 0;
+            border-left: 5px solid transparent;
+            border-right: 5px solid transparent;
+            border-top: 7px solid var(--text);
+        }
+
+        .btn-reorder:disabled .reorder-up { border-bottom-color: var(--empty); }
+        .btn-reorder:disabled .reorder-down { border-top-color: var(--empty); }
+
+        #habitInput::placeholder { color: var(--text); opacity: 1; }
+        .collapse-btn { background: none; border: none; cursor: pointer; padding: 5px; display: flex; align-items: center; justify-content: center; transition: transform 0.3s ease; }
+        .triangle-icon { width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 8px solid var(--text); }
+        .collapsed .triangle-icon { transform: rotate(180deg); }
+        .collapsed-content { display: block; }
+        .collapsed .collapsed-content { display: none; }
+        .collapsed .header-row { margin-bottom: 0; }
+        .edit-habit-input { background: transparent; border: none; padding: 0; color: var(--text-alt); font-size: 0.8rem; outline: none; width: 100%; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .modal-content { background-color: var(--card-bg); border: 1px solid var(--border); padding: 1.5rem; border-radius: 20px; max-width: 300px; width: 90%; text-align: center; }
+        .modal-text { color: var(--text-alt); font-size: 0.9rem; margin-bottom: 1.5rem; line-height: 1.4; }
+        .modal-actions { display: flex; gap: 3.5rem; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<div class="modal-overlay" id="custom-modal">
+    <div class="modal-content">
+        <div class="modal-text" id="modal-message">Are you sure?</div>
+        <div class="modal-actions">
+            <button class="btn-main" id="modal-cancel" style="color: var(--done); border: 1px solid var(--done);">Cancel</button>
+            <button class="btn-main btn-danger" id="modal-confirm" style="color: var(--danger); border: 1px solid var(--danger)">Delete</button>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="header-row">
+        <h2>Daily Tracker</h2>
+        <button id="toggle-lock" class="lock-btn" onclick="togglePastEdits()" title="Toggle past edits">
+            <svg id="lock-icon" viewBox="0 0 24 24"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+        </button>
+    </div>
+    
+    <div class="tracker-wrapper">
+        <div class="fixed-labels" id="fixed-labels"></div>
+        <div class="scroll-viewport" id="scroll-container">
+            <div class="habit-table" id="habit-table"></div>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="year-label" id="year-display"></div>
+    <div class="header-row">
+        <h2>
+            <div class="nav-tri nav-left" onclick="changeMonth(-1)"></div>
+            <span id="month-title" style="color: var(--text-h)">Month</span>
+            <div class="nav-tri nav-right" onclick="changeMonth(1)"></div>
+        </h2>
+    </div>
+    <div class="month-section" id="month-section"></div>
+</div>
+
+<div class="container collapsed" id="manage-habits-container">
+    <div class="header-row">
+        <h2>Manage Habits</h2>
+        <button class="collapse-btn" onclick="toggleManageCard()" title="Toggle card">
+            <div class="triangle-icon"></div>
+        </button>
+    </div>
+    <div class="collapsed-content">
+        <div class="manage-list" id="manage-list"></div>
+        <div class="controls">
+            <input type="text" id="habitInput" placeholder="New habit...">
+            <button class="btn-main" onclick="addHabit()">Add</button>
+        </div>
+    </div>
+</div>
+
+<div class="container" id="archive-container" style="display:none;">
+    <h2>Archive</h2>
+    <div class="manage-list" id="archive-list"></div>
+</div>
+
+<div class="container" id="data-archive-container" style="display:none;">
+    <h2>Archived Data</h2>
+    <div class="manage-list" id="data-archive-list"></div>
+</div>
+
+<script>
+            const habitTable = document.getElementById('habit-table');
+    const fixedLabels = document.getElementById('fixed-labels');
+    const monthSection = document.getElementById('month-section');
+    const manageList = document.getElementById('manage-list');
+    const archiveList = document.getElementById('archive-list');
+    const dataArchiveList = document.getElementById('data-archive-list');
+    const scrollContainer = document.getElementById('scroll-container');
+
+    let habits = JSON.parse(localStorage.getItem('habitData')) || [];
+    let archivedHabits = JSON.parse(localStorage.getItem('archivedHabits')) || [];
+    let archivedHistory = JSON.parse(localStorage.getItem('archivedHistory')) || [];
+    
+    let viewDate = new Date();
+    let pastEditable = false;
+    let editingIndex = -1;
+
+    const modal = document.getElementById('custom-modal');
+    const modalMessage = document.getElementById('modal-message');
+    const modalConfirm = document.getElementById('modal-confirm');
+    const modalCancel = document.getElementById('modal-cancel');
+    let modalAction = null;
+
+    function showModal(message, onConfirm) {
+        modalMessage.innerHTML = message;
+        modal.style.display = 'flex';
+        modalAction = onConfirm;
+    }
+
+    modalConfirm.onclick = () => { if (modalAction) modalAction(); modal.style.display = 'none'; modalAction = null; };
+    modalCancel.onclick = () => { modal.style.display = 'none'; modalAction = null; };
+
+    // Helper: Convert Date object to YYYY-MM-DD
+    function toDateStr(date) {
+        return date.toISOString().split('T')[0];
+    }
+
+    // Helper: Get array of all date strings in history
+    function getAllRecordedDates() {
+        const dates = [];
+        const all = [...habits, ...archivedHabits, ...archivedHistory];
+        all.forEach(h => {
+            if (h.history) {
+                Object.keys(h.history).forEach(d => {
+                    if (h.history[d] > 0) dates.push(d);
+                });
+            }
+        });
+        return dates.sort();
+    }
+
+    function getGridStartDate() {
+        const recorded = getAllRecordedDates();
+        const today = toDateStr(new Date());
+        if (recorded.length === 0) return today;
+        // The start is the earlier of the first recorded date OR today
+        return recorded[0] < today ? recorded[0] : today;
+    }
+
+    function togglePastEdits() {
+        pastEditable = !pastEditable;
+        const btn = document.getElementById('toggle-lock');
+        const icon = document.getElementById('lock-icon');
+        if (pastEditable) {
+            btn.classList.add('unlocked');
+            icon.innerHTML = '<path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6h1.9c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm0 12H6V10h12v10z"/>';
+        } else {
+            btn.classList.remove('unlocked');
+            icon.innerHTML = '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>';
+        }
+        render();
+    }
+
+    function changeMonth(dir) { viewDate.setMonth(viewDate.getMonth() + dir); render(); }
+
+    function render() {
+        save();
+        renderDaily();
+        renderMonthly();
+        renderManage();
+        renderArchive();
+        renderDataArchive();
+    }
+
+    function save() {
+        localStorage.setItem('habitData', JSON.stringify(habits));
+        localStorage.setItem('archivedHabits', JSON.stringify(archivedHabits));
+        localStorage.setItem('archivedHistory', JSON.stringify(archivedHistory));
+    }
+
+    function renderDaily() {
+        habitTable.innerHTML = '';
+        fixedLabels.innerHTML = '';
+        
+        const gridStartStr = getGridStartDate();
+        const startDay = new Date(gridStartStr);
+        const todayStr = toDateStr(new Date());
+        
+        // Calculate number of columns from grid start to 15 days past today
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const diffToToday = Math.floor((new Date(todayStr) - startDay) / msPerDay);
+        const totalColumns = diffToToday + 16;
+
+        const indicatorRow = document.createElement('div');
+        indicatorRow.className = 'indicator-row';
+        
+        for (let i = 0; i < totalColumns; i++) {
+            const current = new Date(startDay);
+            current.setDate(startDay.getDate() + i);
+            const currentStr = toDateStr(current);
+
+            const container = document.createElement('div');
+            container.className = 'triangle-container';
+            const tri = document.createElement('div');
+            tri.className = 'today-tri';
+            if (currentStr === todayStr) { 
+                tri.classList.add('active'); 
+                tri.id = 'today-indicator'; 
+            }
+            container.appendChild(tri);
+            indicatorRow.appendChild(container);
+        }
+        habitTable.appendChild(indicatorRow);
+
+        habits.forEach((habit, hIdx) => {
+            const label = document.createElement('div');
+            label.className = 'habit-label'; 
+            label.innerText = habit.name;
+            fixedLabels.appendChild(label);
+
+            const grid = document.createElement('div');
+            grid.className = 'grid-row';
+
+            for (let i = 0; i < totalColumns; i++) {
+                const current = new Date(startDay);
+                current.setDate(startDay.getDate() + i);
+                const currentStr = toDateStr(current);
+
+                const sq = document.createElement('div');
+                sq.className = 'square';
+                const status = (habit.history && habit.history[currentStr]) || 0;
+                sq.setAttribute('data-status', status);
+
+                const isToday = (currentStr === todayStr);
+                const isPast = (currentStr < todayStr);
+
+                if (isToday || (isPast && pastEditable)) {
+                    sq.classList.add('clickable');
+                    sq.onclick = () => updateHabit(hIdx, currentStr, (parseInt(sq.getAttribute('data-status')) + 1) % 3);
+                } else { 
+                    sq.classList.add('disabled'); 
+                }
+                grid.appendChild(sq);
+            }
+            habitTable.appendChild(grid);
+        });
+    }
+
+        function renderMonthly() {
+        monthSection.innerHTML = '';
+        const month = viewDate.getMonth();
+        const year = viewDate.getFullYear();
+        document.getElementById('month-title').innerText = viewDate.toLocaleString('default', { month: 'long' });
+        document.getElementById('year-display').innerText = year;
+        
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        // Start and end of the currently viewed month for comparison
+        const monthStartStr = toDateStr(new Date(year, month, 1));
+        const monthEndStr = toDateStr(new Date(year, month, daysInMonth));
+
+        // Filter the list to include:
+        // 1. All active habits
+        // 2. Archived habits ONLY IF they have at least one entry in the current month
+        const displayList = [
+            ...habits,
+            ...archivedHistory.filter(h => {
+                if (!h.isActive) return false;
+                if (!h.history) return false;
+                
+                // Check if any key in the history falls within this month
+                return Object.keys(h.history).some(dateStr => {
+                    return dateStr >= monthStartStr && dateStr <= monthEndStr;
+                });
+            })
+        ];
+
+        displayList.forEach((habit) => {
+            const group = document.createElement('div');
+            group.className = 'month-habit-group';
+            const label = document.createElement('div');
+            label.className = 'habit-label'; 
+            label.style.textAlign = 'left'; 
+            label.innerText = habit.name; 
+            label.style.justifyContent = 'flex-start';
+            group.appendChild(label);
+
+            const grid = document.createElement('div');
+            grid.className = 'month-grid';
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateAtDay = new Date(year, month, day);
+                const dateStr = toDateStr(dateAtDay);
+                const miniSq = document.createElement('div');
+                miniSq.className = 'mini-square';
+                miniSq.setAttribute('data-status', (habit.history && habit.history[dateStr]) || 0);
+                grid.appendChild(miniSq);
+            }
+            group.appendChild(grid);
+            monthSection.appendChild(group);
+        });
+    }
+
+        function renderManage() {
+        manageList.innerHTML = '';
+        habits.forEach((habit, index) => {
+            const item = document.createElement('div');
+            item.className = 'manage-item';
+            
+            if (index === editingIndex) {
+                const input = document.createElement('input');
+                input.type = 'text'; 
+                input.value = habit.name; 
+                input.className = 'edit-habit-input';
+                
+                const saveChanges = () => {
+                    const newName = input.value.trim();
+                    if (newName && newName !== habit.name) { 
+                        habit.name = newName; 
+                    }
+                    editingIndex = -1; 
+                    render();
+                };
+                
+                input.onkeydown = (e) => { 
+                    if (e.key === 'Enter') saveChanges(); 
+                    if (e.key === 'Escape') { editingIndex = -1; render(); } 
+                };
+                input.onblur = saveChanges;
+                
+                item.appendChild(input);
+                const actions = document.createElement('div');
+                actions.className = 'manage-actions';
+                const saveBtn = document.createElement('button'); 
+                saveBtn.className = 'btn-small'; 
+                saveBtn.innerText = 'Save'; 
+                saveBtn.onclick = saveChanges; 
+                actions.appendChild(saveBtn);
+                item.appendChild(actions);
+                
+                manageList.appendChild(item);
+                input.focus();
+                                  } else {
+                const upDisabled = index === 0 ? 'disabled' : '';
+                const downDisabled = index === habits.length - 1 ? 'disabled' : '';
+
+                const row = document.createElement('div');
+                row.className = 'manage-row';
+
+                row.innerHTML = `
+                    <div class="reorder-controls">
+                        <button class="btn-reorder" ${upDisabled} onclick="moveHabit(${index}, -1)">
+                            <div class="reorder-up"></div>
+                        </button>
+                        <button class="btn-reorder" ${downDisabled} onclick="moveHabit(${index}, 1)">
+                            <div class="reorder-down"></div>
+                        </button>
+                    </div>
+                    <div class="manage-item" style="flex-grow: 1;">
+                        <span>${habit.name}</span>
+                        <div class="manage-actions">
+                            <button class="btn-small" onclick="startEditing(${index})">Edit</button>
+                            <button class="btn-small" onclick="archiveHabit(${index})">Archive</button>
+                        </div>
+                    </div>
+                `;
+                manageList.appendChild(row);
+            }
+        });
+    }
+    
+        function moveHabit(index, direction) {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= habits.length) return;
+        
+        const temp = habits[index];
+        habits[index] = habits[newIndex];
+        habits[newIndex] = temp;
+        
+        render();
+    }
+
+    function startEditing(index) { editingIndex = index; renderManage(); }
+
+        function renderArchive() {
+        archiveList.innerHTML = '';
+        const container = document.getElementById('archive-container');
+        const manageContainer = document.getElementById('manage-habits-container');
+        
+        if (archivedHabits.length > 0) {
+            // Only show if there is data AND the manage card is NOT collapsed
+            container.style.display = manageContainer.classList.contains('collapsed') ? 'none' : 'block';
+            
+            archivedHabits.forEach((habit, index) => {
+                const item = document.createElement('div');
+                item.className = 'manage-item';
+                item.innerHTML = `<span>${habit.name}</span><div class="manage-actions"><button class="btn-small" onclick="restoreHabit(${index})">Restore</button><button class="btn-small btn-danger" onclick="confirmDeleteHabit(${index})">Delete</button></div>`;
+                archiveList.appendChild(item);
+            });
+        } else { 
+            container.style.display = 'none'; 
+        }
+    }
+
+    function confirmDeleteHabit(index) { 
+        showModal(`Delete habit name?<br>(Data remains in Data Archive)`, () => { 
+            archivedHabits.splice(index, 1); 
+            render(); 
+        }); 
+    }
+
+        function renderDataArchive() {
+        dataArchiveList.innerHTML = '';
+        const container = document.getElementById('data-archive-container');
+        const manageContainer = document.getElementById('manage-habits-container');
+        
+        if (archivedHistory.length > 0) {
+            // Only show if there is data AND the manage card is NOT collapsed
+            container.style.display = manageContainer.classList.contains('collapsed') ? 'none' : 'block';
+            
+            archivedHistory.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'manage-item';
+                div.innerHTML = `<span>${item.name} Data</span><div class="manage-actions"><button class="btn-small" onclick="toggleData(${index})">${item.isActive ? 'Hide' : 'Show'}</button><button class="btn-small btn-danger" onclick="confirmDeleteData(${index})">Delete</button></div>`;
+                dataArchiveList.appendChild(div);
+            });
+        } else { 
+            container.style.display = 'none'; 
+        }
+    }
+
+    function confirmDeleteData(index) { 
+        showModal("Delete all recorded data for this habit?", () => { 
+            archivedHistory.splice(index, 1); 
+            render(); 
+        }); 
+    }
+
+    function addHabit() {
+        const input = document.getElementById('habitInput');
+        const name = input.value.trim();
+        if (!name) return;
+        
+        const arcIdx = archivedHabits.findIndex(h => h.name.toLowerCase() === name.toLowerCase());
+        if (arcIdx > -1) { restoreHabit(arcIdx); input.value = ''; return; }
+        
+        const dataIdx = archivedHistory.findIndex(h => h.name.toLowerCase() === name.toLowerCase());
+        if (dataIdx > -1) { 
+            const historicData = archivedHistory.splice(dataIdx, 1)[0]; 
+            habits.push({ ...historicData, isActive: true }); 
+        } else { 
+            habits.push({ name: name, history: {}, id: Date.now() }); 
+        }
+        input.value = ''; render();
+    }
+
+        function archiveHabit(index) {
+        const habit = habits.splice(index, 1)[0];
+        archivedHabits.push(habit);
+        const hIdx = archivedHistory.findIndex(h => h.id === habit.id);
+        if (hIdx === -1) { 
+            // Set to true so it shows in the month section immediately
+            archivedHistory.push({ ...habit, isActive: true }); 
+        } 
+        else { 
+            // Set to true so it shows in the month section immediately
+            archivedHistory[hIdx].isActive = true; 
+        }
+        editingIndex = -1; render();
+    }
+
+    function restoreHabit(index) {
+        const habit = archivedHabits.splice(index, 1)[0];
+        habits.push(habit);
+        const hIdx = archivedHistory.findIndex(h => h.id === habit.id);
+        if (hIdx > -1) archivedHistory.splice(hIdx, 1);
+        render();
+    }
+
+    function toggleData(index) { archivedHistory[index].isActive = !archivedHistory[index].isActive; render(); }
+    
+    function updateHabit(hIdx, dateStr, status) { 
+        if (!habits[hIdx].history) habits[hIdx].history = {};
+        if (status === 0) {
+            delete habits[hIdx].history[dateStr];
+        } else {
+            habits[hIdx].history[dateStr] = status; 
+        }
+        render(); 
+    }
+
+        function toggleManageCard() {
+        const container = document.getElementById('manage-habits-container');
+        const archiveContainer = document.getElementById('archive-container');
+        const dataArchiveContainer = document.getElementById('data-archive-container');
+        
+        // Toggle the collapsed class for the Manage Habits card
+        container.classList.toggle('collapsed');
+        
+        // Check if the card is now collapsed
+        const isCollapsed = container.classList.contains('collapsed');
+        
+        if (isCollapsed) {
+            // Hide the other cards when collapsed
+            archiveContainer.style.display = 'none';
+            dataArchiveContainer.style.display = 'none';
+        } else {
+            // Show the other cards when expanded (only if they have content)
+            if (archivedHabits.length > 0) archiveContainer.style.display = 'block';
+            if (archivedHistory.length > 0) dataArchiveContainer.style.display = 'block';
+        }
+    }
+
+    render();
+
+    window.onload = () => {
+        setTimeout(() => {
+            const tri = document.getElementById('today-indicator');
+            const container = document.getElementById('scroll-container');
+            if (tri && container) {
+                const triRect = tri.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                const absoluteLocation = triRect.left - containerRect.left + container.scrollLeft;
+                container.scrollLeft = absoluteLocation - container.offsetWidth + tri.offsetWidth + 15;
+            }
+        }, 200);
+    };
+</script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+</body>
+</html>
