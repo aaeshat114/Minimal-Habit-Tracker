@@ -362,11 +362,14 @@
     }
 
     function getGridStartDate() {
-        const recorded = getAllRecordedDates();
-        const today = toDateStr(new Date());
-        if (recorded.length === 0) return today;
-        return recorded[0] < today ? recorded[0] : today;
-    }
+    const recorded = getAllRecordedDates();
+    const today = new Date();
+    today.setDate(today.getDate() - 5); 
+    const fallbackDate = toDateStr(today);
+
+    if (recorded.length === 0) return fallbackDate;
+    return recorded[0] < fallbackDate ? recorded[0] : fallbackDate;
+}
 
     function togglePastEdits() {
         pastEditable = !pastEditable;
