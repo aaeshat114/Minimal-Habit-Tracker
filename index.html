@@ -408,8 +408,8 @@
         const todayStr = toDateStr(new Date());
         
         const msPerDay = 24 * 60 * 60 * 1000;
-        const diffToToday = Math.floor((new Date(todayStr) - startDay) / msPerDay);
-        const totalColumns = diffToToday + 16;
+        const diffToToday = Math.round((new Date(todayStr).getTime() - startDay.getTime()) / msPerDay);
+        const totalColumns = diffToToday + 15;
 
         const indicatorRow = document.createElement('div');
         indicatorRow.className = 'indicator-row';
